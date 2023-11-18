@@ -40,10 +40,10 @@ func NewHealthClient(logger *log.Logger, pingKey string, createNewChecks bool) H
 // HealthCheck Interface
 
 func (hc *healthClient) SendSuccess(slug string) error {
+	hc.logger.Info().Str("slug", slug).Msg("sending success")
+
 	shouldCreateNewChecks := hc.createNewChecksValue()
 	url := fmt.Sprintf("https://hc-ping.com/%s/%s?create=%d", hc.pingKey, slug, shouldCreateNewChecks)
-	fmt.Println("url")
-	fmt.Println(url)
 
 	resp, err := hc.client.Get(url)
 	if err != nil {
@@ -55,20 +55,29 @@ func (hc *healthClient) SendSuccess(slug string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("got a response")
-	fmt.Println(string(body))
-	// hc.logger.Info().Str("ressponse", string(body))
+	hc.logger.Debug().Str("response", string(body)).Int("status", resp.StatusCode).Str("slug", slug).Msg("got response from success call")
 
 	return nil
 }
 
 func (hc *healthClient) SendFailure(slug string) error {
+	hc.logger.Info().Str("slug", slug).Msg("sending failure")
+
 	shouldCreateNewChecks := hc.createNewChecksValue()
 	url := fmt.Sprintf("https://hc-ping.com/%s/%s/fail?create=%d", hc.pingKey, slug, shouldCreateNewChecks)
-	_, err := hc.client.Get(url)
+
+	resp, err := hc.client.Get(url)
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	hc.logger.Debug().Str("response", string(body)).Int("status", resp.StatusCode).Str("slug", slug).Msg("got response from failure call")
+
 	return nil
 }
 
