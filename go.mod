@@ -1,6 +1,6 @@
 module github.com/tessellated-io/healthchecks
 
-go 1.21.4
+go 1.21
 
 require github.com/tessellated-io/pickaxe v1.0.11
 
