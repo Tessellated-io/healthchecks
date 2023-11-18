@@ -10,7 +10,7 @@ BUILD_TARGETS := build
 
 build:
 	mkdir -p $(BUILDDIR)/
-	go build -mod=readonly -ldflags '$(ldflags)' -trimpath -o $(BUILDDIR) ./...;
+	go build -mod=readonly ./...;
 
 clean:
 	rm -rf $(BUILDDIR)/*
