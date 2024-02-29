@@ -25,7 +25,7 @@ type healthClient struct {
 var _ HealthClient = (*healthClient)(nil)
 
 func NewHealthClient(logger *log.Logger, pingKey string, createNewChecks bool) HealthClient {
-	prefixedLogger := logger.ApplyPrefix(" [HEALTHCHECKS] 🩺")
+	prefixedLogger := logger.ApplyPrefix("[HEALTHCHECKS] 🩺")
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
