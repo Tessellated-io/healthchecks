@@ -12,12 +12,15 @@ import (
 )
 
 type HealthClient interface {
+	UpsertCheck(slug string) error
+
 	SendSuccess(slug string) error
 	SendFailure(slug string) error
 	SendFailureWithErr(slug string, err error) error
 }
 
 type CreateCheckPayload struct {
+	Name     string   `json:"name"`
 	Slug     string   `json:"slug"`
 	Timeout  int      `json:"timeout"`
 	Grace    int      `json:"grace"`
@@ -119,6 +122,7 @@ func (hc *healthClient) SendFailureWithErr(slug string, err error) error {
 func (hc *healthClient) UpsertCheck(slug string) error {
 	url := "https://healthchecks.io/api/v3/checks/"
 	createCheckPayload := &CreateCheckPayload{
+		Name:     slug,
 		Slug:     slug,
 		Timeout:  hc.timeoutSeconds,
 		Grace:    hc.gracePeriodSeconds,
