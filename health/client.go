@@ -16,7 +16,6 @@ type HealthClient interface {
 
 	SendSuccess(slug string) error
 	SendFailure(slug string) error
-	SendFailureWithErr(slug string, err error) error
 }
 
 type CreateCheckPayload struct {
@@ -90,10 +89,6 @@ func (hc *healthClient) SendSuccess(slug string) error {
 }
 
 func (hc *healthClient) SendFailure(slug string) error {
-	return hc.SendFailureWithErr(slug, nil)
-}
-
-func (hc *healthClient) SendFailureWithErr(slug string, err error) error {
 	hc.logger.Info().Str("slug", slug).Msg("sending failure")
 
 	if hc.createNewChecks {
