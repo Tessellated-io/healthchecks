@@ -1,6 +1,8 @@
 package health
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,13 +12,28 @@ import (
 )
 
 type HealthClient interface {
+	UpsertCheck(slug string) error
+
 	SendSuccess(slug string) error
 	SendFailure(slug string) error
 }
 
+type CreateCheckPayload struct {
+	Name     string   `json:"name"`
+	Slug     string   `json:"slug"`
+	Timeout  int      `json:"timeout"`
+	Grace    int      `json:"grace"`
+	Unique   []string `json:"unique"`
+	Channels string   `json:"channels"`
+	ApiKey   string   `json:"api_key"`
+}
+
 type healthClient struct {
-	pingKey         string
-	createNewChecks bool
+	pingKey            string
+	apiKey             string
+	createNewChecks    bool
+	timeoutSeconds     int
+	gracePeriodSeconds int
 
 	client *http.Client
 	logger *log.Logger
@@ -24,18 +41,21 @@ type healthClient struct {
 
 var _ HealthClient = (*healthClient)(nil)
 
-func NewHealthClient(logger *log.Logger, pingKey string, createNewChecks bool) HealthClient {
-	prefixedLogger := logger.ApplyPrefix("[HEALTHCHECKS] 🩺")
+func NewHealthClient(logger *log.Logger, apiKey, pingKey string, createNewChecks bool, timeoutSeconds, gracePeriodSeconds int) HealthClient {
+	prefixedLogger := logger.ApplyPrefix(" [HEALTHCHECKS] 🩺")
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
 	return &healthClient{
-		pingKey:         pingKey,
-		createNewChecks: createNewChecks,
-		client:          client,
-		logger:          prefixedLogger,
+		pingKey:            pingKey,
+		apiKey:             apiKey,
+		createNewChecks:    createNewChecks,
+		client:             client,
+		logger:             prefixedLogger,
+		timeoutSeconds:     timeoutSeconds,
+		gracePeriodSeconds: gracePeriodSeconds,
 	}
 }
 
@@ -44,8 +64,14 @@ func NewHealthClient(logger *log.Logger, pingKey string, createNewChecks bool) H
 func (hc *healthClient) SendSuccess(slug string) error {
 	hc.logger.Info().Str("slug", slug).Msg("sending success")
 
-	shouldCreateNewChecks := hc.createNewChecksValue()
-	url := fmt.Sprintf("https://hc-ping.com/%s/%s?create=%d", hc.pingKey, slug, shouldCreateNewChecks)
+	if hc.createNewChecks {
+		err := hc.UpsertCheck(slug)
+		if err != nil {
+			return err
+		}
+	}
+
+	url := fmt.Sprintf("https://hc-ping.com/%s/%s", hc.pingKey, slug)
 
 	resp, err := hc.client.Get(url)
 	if err != nil {
@@ -65,8 +91,13 @@ func (hc *healthClient) SendSuccess(slug string) error {
 func (hc *healthClient) SendFailure(slug string) error {
 	hc.logger.Info().Str("slug", slug).Msg("sending failure")
 
-	shouldCreateNewChecks := hc.createNewChecksValue()
-	url := fmt.Sprintf("https://hc-ping.com/%s/%s/fail?create=%d", hc.pingKey, slug, shouldCreateNewChecks)
+	if hc.createNewChecks {
+		err := hc.UpsertCheck(slug)
+		if err != nil {
+			return err
+		}
+	}
+	url := fmt.Sprintf("https://hc-ping.com/%s/%s/fail", hc.pingKey, slug)
 
 	resp, err := hc.client.Get(url)
 	if err != nil {
@@ -83,12 +114,31 @@ func (hc *healthClient) SendFailure(slug string) error {
 	return nil
 }
 
-// Private methods
-
-func (hc *healthClient) createNewChecksValue() int {
-	if hc.createNewChecks {
-		return 1
-	} else {
-		return 0
+func (hc *healthClient) UpsertCheck(slug string) error {
+	url := "https://healthchecks.io/api/v3/checks/"
+	createCheckPayload := &CreateCheckPayload{
+		Name:     slug,
+		Slug:     slug,
+		Timeout:  hc.timeoutSeconds,
+		Grace:    hc.gracePeriodSeconds,
+		Unique:   []string{"name", "slug"},
+		Channels: "*",
+		ApiKey:   hc.apiKey,
 	}
+
+	payload, err := json.Marshal(createCheckPayload)
+	if err != nil {
+		return err
+	}
+
+	resp, err := hc.client.Post(url, "application/json", bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("unexpected code from HTTP to %s: HTTP %d", url, resp.StatusCode)
+	}
+	return nil
 }
