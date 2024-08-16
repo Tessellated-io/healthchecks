@@ -137,7 +137,7 @@ func (hc *healthClient) UpsertCheck(slug string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected code from HTTP to %s: HTTP %d", url, resp.StatusCode)
 	}
 	return nil
