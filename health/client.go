@@ -42,7 +42,7 @@ type healthClient struct {
 var _ HealthClient = (*healthClient)(nil)
 
 func NewHealthClient(logger *log.Logger, apiKey, pingKey string, createNewChecks bool, timeoutSeconds, gracePeriodSeconds int) HealthClient {
-	prefixedLogger := logger.ApplyPrefix(" [HEALTHCHECKS] 🩺")
+	prefixedLogger := logger.ApplyPrefix("[HEALTHCHECKS] 🩺")
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -62,7 +62,8 @@ func NewHealthClient(logger *log.Logger, apiKey, pingKey string, createNewChecks
 // HealthCheck Interface
 
 func (hc *healthClient) SendSuccess(slug string) error {
-	hc.logger.Info().Str("slug", slug).Msg("sending success")
+	logger := hc.logger.With("slug", slug)
+	logger.Info("sending success")
 
 	if hc.createNewChecks {
 		err := hc.UpsertCheck(slug)
@@ -83,13 +84,14 @@ func (hc *healthClient) SendSuccess(slug string) error {
 	if err != nil {
 		return err
 	}
-	hc.logger.Debug().Str("response", string(body)).Int("status", resp.StatusCode).Str("slug", slug).Msg("got response from success call")
+	logger.Debug("got response from success call", "response", string(body), "status", resp.StatusCode)
 
 	return nil
 }
 
 func (hc *healthClient) SendFailure(slug string) error {
-	hc.logger.Info().Str("slug", slug).Msg("sending failure")
+	logger := hc.logger.With("slug", slug)
+	logger.Info("sending failure")
 
 	if hc.createNewChecks {
 		err := hc.UpsertCheck(slug)
@@ -109,7 +111,7 @@ func (hc *healthClient) SendFailure(slug string) error {
 	if err != nil {
 		return err
 	}
-	hc.logger.Debug().Str("response", string(body)).Int("status", resp.StatusCode).Str("slug", slug).Msg("got response from failure call")
+	logger.Debug("got response from failure call", "response", string(body), "status", resp.StatusCode)
 
 	return nil
 }
